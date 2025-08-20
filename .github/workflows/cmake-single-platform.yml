@@ -1,0 +1,76 @@
+name: Qt C++ CI with Release Packaging
+
+# Условия запуска: при push или pull request в ветку "master"
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  # Тип сборки (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+  PROJECT_NAME: hello
+
+jobs:
+  build-and-release:
+    # Запускаем на последней версии Ubuntu
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '6.7.3' 
+
+    - name: Install system dependencies
+      run: sudo apt-get update && sudo apt-get install -y libboost-test-dev
+
+    - name: Configure CMake
+      run: >
+        cmake -B ${{github.workspace}}/build
+        -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+        -DPATCH_VERSION=${{github.run_number}}
+
+    # 5. Сборка проекта
+    # ------------------
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+    - name: Test
+      working-directory: ${{github.workspace}}/build
+      run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure
+      
+    - name: Package
+      run: cmake --build ${{github.workspace}}/build --target package
+
+    - name: Create Release
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v1.0.${{ github.run_number }}
+        release_name: Release v1.0.${{ github.run_number }}
+        body: |
+          Автоматический релиз сборки №${{ github.run_number }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      id: upload-release-asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        # Имя файла пакета. Оно должно соответствовать тому, что генерирует CPack.
+        # Замените PROJECT_NAME в env на имя вашего проекта.
+        asset_path: ${{github.workspace}}/build/${{env.PROJECT_NAME}}-0.0.${{github.run_number}}-Linux.deb
+        asset_name: ${{env.PROJECT_NAME}}-0.0.${{github.run_number}}-Linux.deb
+        asset_content_type: application/vnd.debian.binary-package
