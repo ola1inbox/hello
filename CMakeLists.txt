@@ -1,9 +1,12 @@
 cmake_minimum_required(VERSION 3.16)
 
-set(PATCH_VERSION "1" CACHE INTERNAL "Patch version")
-set(PROJECT_VESRION 0.0.${PATCH_VERSION})
+if(NOT DEFINED PATCH_VERSION)
+  set(PATCH_VERSION "0")
+endif()
 
-project(hello VERSION ${PROJECT_VESRION})
+set(PROJECT_VERSION 0.0.${PATCH_VERSION})
+
+project(hello VERSION ${PROJECT_VERSION})
 
 configure_file(version.h.in version.h)
 
@@ -24,14 +27,21 @@ target_link_libraries(hello_cli Qt${QT_VERSION_MAJOR}::Core)
 target_include_directories(hello_cli
     PRIVATE "${CMAKE_BINARY_DIR}"
 )
-include(GNUInstallDirs)
 
+include(GNUInstallDirs)
 install(TARGETS hello_cli RUNTIME DESTINATION bin)
 
-set(CPACK_GENERATOR DEB)
+# --- Настройки CPack ---
+
+set(CPACK_GENERATOR "DEB")
+set(CPACK_PACKAGE_NAME ${PROJECT_NAME})
+set(CPACK_PACKAGE_VENDOR "My Company")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Olga Resh <ola1@inbox.ru>")
 
 set(CPACK_PACKAGE_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}")
 set(CPACK_PACKAGE_VERSION_MINOR "${PROJECT_VERSION_MINOR}")
 set(CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
 
-set(CPACK_PACKAGE_CONTACT example@example.com)
+set(CPACK_PACKAGE_CONTACT "ola1@inbox.ru")
+
+include(CPack)
